@@ -1,0 +1,243 @@
+{
+  "info": {
+    "name": "Task Manager API (DRF + JWT)",
+    "description": "Full auth + CRUD flow for the Task Manager API. Import into Postman along with the environment, run 'Register' then 'Login' first \u2014 tokens are auto-saved to collection variables and reused by every other request.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "b7e2a6f0-6c1a-4b7a-9f0a-8c1d2e3f4a5b"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://127.0.0.1:8000/api" },
+    { "key": "username", "value": "postman_demo_user" },
+    { "key": "password", "value": "DemoPass123!" },
+    { "key": "access_token", "value": "" },
+    { "key": "refresh_token", "value": "" },
+    { "key": "task_id", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "1. Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/register/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"email\": \"{{username}}@example.com\",\n  \"password\": \"{{password}}\",\n  \"password_confirm\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201 (or 400 if already registered)', function () {",
+                  "  pm.expect([201, 400]).to.include(pm.response.code);",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login (Obtain Token Pair)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/token/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{username}}\",\n  \"password\": \"{{password}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collection.variables.set('access_token', json.access);",
+                  "pm.collection.variables.set('refresh_token', json.refresh);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/token/refresh/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refresh\": \"{{refresh_token}}\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "const json = pm.response.json();",
+                  "pm.collection.variables.set('access_token', json.access);",
+                  "if (json.refresh) { pm.collection.variables.set('refresh_token', json.refresh); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Token",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{base_url}}/auth/token/verify/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"{{access_token}}\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Current User (me)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/auth/me/"
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Tasks (CRUD)",
+      "item": [
+        {
+          "name": "Create Task",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/tasks/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Record Loom demo\",\n  \"description\": \"Show off the CRUD API end to end\",\n  \"priority\": \"high\",\n  \"due_date\": \"2026-08-01\"\n}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 201', function () { pm.response.to.have.status(201); });",
+                  "pm.collection.variables.set('task_id', pm.response.json().id);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "List Tasks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/tasks/?ordering=-created_at",
+              "host": ["{{base_url}}"],
+              "path": ["tasks", ""],
+              "query": [{ "key": "ordering", "value": "-created_at" }]
+            }
+          }
+        },
+        {
+          "name": "List Tasks (filter: completed=false)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/tasks/?completed=false",
+              "host": ["{{base_url}}"],
+              "path": ["tasks", ""],
+              "query": [{ "key": "completed", "value": "false" }]
+            }
+          }
+        },
+        {
+          "name": "Search Tasks",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": {
+              "raw": "{{base_url}}/tasks/?search=demo",
+              "host": ["{{base_url}}"],
+              "path": ["tasks", ""],
+              "query": [{ "key": "search", "value": "demo" }]
+            }
+          }
+        },
+        {
+          "name": "Retrieve Task",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/tasks/{{task_id}}/"
+          }
+        },
+        {
+          "name": "Update Task (PUT)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/tasks/{{task_id}}/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Record Loom demo (updated)\",\n  \"description\": \"Show off the CRUD API end to end\",\n  \"priority\": \"medium\",\n  \"completed\": false,\n  \"due_date\": \"2026-08-05\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Partial Update Task (PATCH - mark completed)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{access_token}}" }
+            ],
+            "url": "{{base_url}}/tasks/{{task_id}}/",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"completed\": true\n}"
+            }
+          }
+        },
+        {
+          "name": "Delete Task",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{access_token}}" }],
+            "url": "{{base_url}}/tasks/{{task_id}}/"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status is 204', function () { pm.response.to.have.status(204); });"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+sequenceDiagram
+    actor Client
+    participant API as DRF API
+    participant DB as Database
+
+    Client->>API: POST /api/auth/register/ {username, password}
+    API->>DB: create User
+    API-->>Client: 201 Created (user profile)
+
+    Client->>API: POST /api/auth/token/ {username, password}
+    API->>DB: verify credentials
+    API-->>Client: 200 OK { access, refresh }
+
+    Note over Client: Store access + refresh tokens
+
+    Client->>API: GET /api/tasks/  (Authorization: Bearer <access>)
+    API->>API: JWTAuthentication validates signature + expiry
+    API->>DB: filter Task by owner=request.user
+    API-->>Client: 200 OK [tasks...]
+
+    Note over Client,API: ~30 minutes later, access token expires
+
+    Client->>API: POST /api/auth/token/refresh/ {refresh}
+    API-->>Client: 200 OK { access (new), refresh (rotated) }
+
+    Client->>API: GET /api/tasks/  (Authorization: Bearer <new access>)
+    API-->>Client: 200 OK [tasks...]

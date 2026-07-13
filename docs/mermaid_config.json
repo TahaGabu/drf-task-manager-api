@@ -1,0 +1,7 @@
+{
+  "theme": "default",
+  "themeVariables": {
+    "fontFamily": "Trebuchet MS, Verdana, Arial, sans-serif",
+    "fontSize": "16px"
+  }
+}
